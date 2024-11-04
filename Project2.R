@@ -4,8 +4,13 @@
 #library(ggside)
 #install.packages("ggpubr")
 #install.packages("viridis")
-library(viridis)
-library(ggpubr)
+#library(viridis)
+#library(ggpubr)
+#install.packages("ggstatsplot")  # Install if not already installed
+library(ggstatsplot)              # Load the package
+#install.packages("palmerpenguins")
+
+library(palmerpenguins)
 library(dplyr)
 library(tidyverse)
 library(readxl)
@@ -117,14 +122,237 @@ ggplot(super_data, aes(x = Sales, y = Profit)) +
 
 # 5. Create a 
 
-# Create a bivariate density plot
-# Create a bivariate density plot
-ggplot(super_data, aes(x = Sales, y = Profit)) +
-  geom_density_2d_filled(aes(fill = after_stat(level)), alpha = 0.7) +  # Use after_stat(level)
-  scale_fill_viridis_c(option = "A") +  # Use continuous color scale
-  labs(title = "Bivariate Density Plot of Sales and Profit",
-       x = "Sales",
-       y = "Profit",
-       fill = "Density Level") +
-  theme_pubr() +  # Apply a publication-ready theme
-  theme(legend.position = "right")  # Position the legend
+# Create a cowplot 
+#install.packages("cowplot")
+library(cowplot)
+
+theme_set(theme_cowplot())
+ggplot(super_data, aes(Sales, fill = Category)) +
+  geom_density(alpha = 0.5) + 
+  
+  #geom_point() +
+  #theme_cowplot()
+ # theme_minimal_grid(12)
+  #geom_point(alpha = 0.5) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  #theme_minimal_hybrid(12)
+  theme_minimal_grid(12)
+
+
+
+
+
+# Custom theme based on theme_cowplot with gridlines
+
+
+# Apply the custom theme in your plot
+ggplot(super_data, aes(Sales, Profit, color = Category)) +
+  geom_point(alpha = 0.5) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  custom_theme +
+  labs(title = "Scatter Plot of Sales vs. Profit by Category")
+
+
+################################
+install.packages("magick")
+library(magick)
+p <- ggplot(super_data, aes(Sales, Profit)) + 
+  geom_point(size = 1.5, color = "blue") +
+  theme_cowplot(12)
+
+logo_file <- system.file("extdata", "logo.png", package = "cowplot")
+
+ggdraw(p) + 
+  draw_image(logo_file, x = 1, y = 1, hjust = 1, vjust = 1, width = 0.13, height = 0.2)
+
+##########################
+#library("palmerpenguins")
+
+# Create the plot
+
+#library(palmerpenguins)
+# Ensure the necessary libraries are loaded
+library(ggplot2)
+library(ggplot2)
+
+super_data$Category <- as.factor(super_data$Category)
+
+# Create the plot with density contours and facets by Category
+ggplot(super_data, aes(Sales, Profit)) +
+  stat_density_2d(aes(fill = Category), geom = "polygon", color = "white") +  # Fill based on Category
+  geom_point(aes(color = Category), shape = 21, alpha = 0.5) +  # Scatter points colored by Category
+  coord_cartesian(xlim = c(160, 240), ylim = c(30, 70)) +  # Set coordinate limits
+  facet_wrap(vars(Category)) +  # Create facets for each category
+  theme_minimal() +  # Use a minimal theme
+  labs(title = "Density Plot of Sales vs. Profit by Category",  # Title
+       x = "Sales",  # X-axis label
+       y = "Profit",  # Y-axis label
+       fill = "Category",  # Fill legend label
+       color = "Category")  # Color legend label for points
+
+str(super_data)
+################################
+# 5. Patchwork
+
+#install.packages("devtools")
+library(patchwork)
+# Sample plots based on super_data
+# 1. Scatter plot
+scatter_plot <- ggplot(super_data, aes(Sales, Profit, color = Category)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Scatter Plot of Sales vs Profit") +
+  theme_minimal()
+
+# 2. Density plot
+density_plot <- ggplot(super_data, aes(Sales, fill = Category)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Sales") +
+  theme_minimal()
+
+# 3. Bar plot (example)
+bar_plot <- ggplot(super_data, aes(x = Category)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Count of Categories") +
+  theme_minimal()
+
+# 4. smooth graph
+smooth_plot <- ggplot(super_data, aes(Profit, Sales)) +
+  geom_smooth()
+
+# Combine the plots using patchwork
+combined_plot <- scatter_plot + density_plot + bar_plot + smooth_plot +
+  plot_layout(ncol = 2) +  # Adjust the layout as needed
+  plot_annotation(title = "Super Data Visualizations")  # Overall title
+
+# Display the combined plot
+print(combined_plot)
+
+
+######## 6. 
+
+#install.packages("ggsignif")
+library(ggsignif)
+# Ensure 'Segment' is a factor
+super_data$Segment <- as.factor(super_data$Segment)
+
+# Remove NA values
+#super_data <- na.omit(super_data)
+
+# Check unique levels in Segment
+print(unique(super_data$Segment))  # Ensure these levels match your comparisons
+
+# Create a box plot with significance annotations
+ggplot(super_data, aes(x = Segment, y = Sales)) +
+  geom_boxplot(aes(fill = Segment)) +  # Use Segment for filling
+  geom_signif(comparisons = list(
+    c("Consumer", "Home Office","Corporate"),          # Update these based on your actual factor levels
+    c("Consumer", "Home Office","Corporate")
+  ), map_signif_level = TRUE) +  # Automatically map significance levels
+  ylim(NA, 6.3) +                # Set limits for the y-axis
+  labs(title = "Box Plot of Sales by Segment",
+       x = "Segment",
+       y = "Sales") +
+  theme_minimal()
+
+###################################################################
+
+
+
+# App Requirements
+library(shiny)
+library(dplyr)
+library(DT)
+library(ggplot2)
+library(readxl)
+
+# Load your dataset
+# Load the Data 
+super_data <- read_excel("US_Superstore_data.xls")
+head(super_data)
+ui <- fluidPage(
+  titlePanel("Data Exploration App"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("cat_var1", "Select Categorical Variable 1:",
+                  choices = unique(super_data$Category), selected = "Furniture"),
+      selectInput("cat_var2", "Select Categorical Variable 2:",
+                  choices = unique(super_data$Segment), selected = "Consumer"),
+      uiOutput("numeric_var1"),
+      uiOutput("numeric_var2"),
+      actionButton("subset_button", "Subset Data")
+    ),
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel("About",
+                 h4("App Purpose"),
+                 p("This app allows users to explore the Superstore sales data."),
+                 p("Data source: [Superstore Sales Data](https://www.kaggle.com/datasets/sdolezel/superstore-sales)"),
+                 img(src = "path_to_image/logo.png", height = 100)),  # Adjust image path
+        tabPanel("Data Download",
+                 DT::dataTableOutput("data_table"),
+                 downloadButton("download_data", "Download Subsetted Data")),
+        tabPanel("Data Exploration",
+                 h4("Explore Numeric and Categorical Summaries"),
+                 uiOutput("summary_selector"),
+                 plotOutput("summary_plot"))
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  # Dynamic UI for numeric variable selection
+  output$numeric_var1 <- renderUI({
+    numericInput("num_var1", "Select Numeric Variable 1:", value = 0)
+  })
+  
+  output$numeric_var2 <- renderUI({
+    numericInput("num_var2", "Select Numeric Variable 2:", value = 0)
+  })
+  
+  # Reactive values for subsetted data
+  subsetted_data <- reactiveValues(data = super_data)
+  
+  observeEvent(input$subset_button, {
+    req(input$cat_var1, input$cat_var2)  # Ensure inputs are available
+    
+    # Subset data based on selections
+    subsetted_data$data <- super_data %>%
+      filter(Category == input$cat_var1 & Segment == input$cat_var2)
+  })
+  
+  # Render data table
+  output$data_table <- DT::renderDataTable({
+    req(subsetted_data$data)  # Ensure data is available
+    DT::datatable(subsetted_data$data)
+  })
+  
+  # Download handler for subsetted data
+  output$download_data <- downloadHandler(
+    filename = function() { paste("subsetted_data", Sys.Date(), ".csv", sep = "") },
+    content = function(file) {
+      write.csv(subsetted_data$data, file, row.names = FALSE)
+    }
+  )
+  
+  # Summary tab functionality
+  output$summary_selector <- renderUI({
+    tagList(
+      selectInput("summary_var", "Choose Summary Variable:", choices = names(super_data)),
+      actionButton("summary_button", "Generate Summary")
+    )
+  })
+  
+  output$summary_plot <- renderPlot({
+    req(input$summary_var)  # Ensure the variable is selected
+    ggplot(subsetted_data$data, aes_string(x = input$summary_var)) +
+      geom_histogram(fill = "blue", alpha = 0.5) +
+      labs(title = paste("Distribution of", input$summary_var))
+  })
+}
+
+shinyApp(ui, server)
+
+
