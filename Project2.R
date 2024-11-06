@@ -1,15 +1,26 @@
 # Project 2
+
+
+
 #Get the data
+
+
+
 #install.packages("ggside")
 #library(ggside)
 #install.packages("ggpubr")
 #install.packages("viridis")
 #library(viridis)
 #library(ggpubr)
-#install.packages("ggstatsplot")  # Install if not already installed
-library(ggstatsplot)              # Load the package
+#install.packages("ggstatsplot")  
+library(ggstatsplot)              
 #install.packages("palmerpenguins")
-
+library(shiny)
+#library(dplyr)
+library(DT)
+#library(ggplot2)
+#library(readxl)
+library(bslib)
 library(palmerpenguins)
 library(dplyr)
 library(tidyverse)
@@ -255,61 +266,69 @@ ggplot(super_data, aes(x = Segment, y = Sales)) +
   theme_minimal()
 
 ###################################################################
-# Load necessary libraries
+
+# App Requirements
 # Load necessary libraries
 #install.packages("readxl")
-#install.packages("shiny")       
-#install.packages("dplyr")       
+#install.packages("shiny")      
+#install.packages("dplyr")      
 #install.packages("DT")          
 #install.packages("ggplot2")    
-#install.packages("readxl")     
+#install.packages("readxl")      
 #install.packages("bslib")      
-library(shiny)
-library(dplyr)
-library(DT)
-library(ggplot2)
-library(readxl)
-library(bslib)
 
-# Load the data and convert categorical columns to factors
+
+# Load the data and save it into super_data
 super_data <- read_excel("US_Superstore_data.xls")
 
-
+# Define UI
 ui <- fluidPage(
   titlePanel("Superstore Data Exploration App"),
   
   sidebarLayout(
     sidebarPanel(
-      # Dropdowns for filtering data
+      # Dropdowns for filtering data :- Choose 2 categorical variables 
       selectInput("cat_var1", "Select Category:", choices = c("All", unique(super_data$Category))),
       selectInput("cat_var2", "Select Segment:", choices = c("All", unique(super_data$Segment))),
       
       # Dynamic UI for numeric variables (displayed as sliders after selection)
       selectInput("num_var1", "Select Numeric Variable 1:", choices = c("None", "Sales", "Profit")),
+      # show the slider after selecting the numerical variable1
       uiOutput("num_slider1"),
       
       selectInput("num_var2", "Select Numeric Variable 2:", choices = c("None", "Quantity", "Discount")),
+      #show the slider after selecting the numerical variable2
       uiOutput("num_slider2"),
       
-      # Action button to subset data
+      # Action button to subset data according to selection 
       actionButton("subset_button", "Subset Data")
     ),
-    
+   
+    # Main Panel:-- here we are using different tabs.  
     mainPanel(
       tabsetPanel(
+        # About tab:-- Describe the purpose of the app
         tabPanel("About",
                  h4("App Purpose"),
-                 p("This app allows users to explore the Superstore sales data."),
-                 p("Data source: [Superstore Sales Data](https://www.kaggle.com/datasets/sdolezel/superstore-sales)"),
-                 p("Use the sidebar to filter data and navigate the tabs for different features.")
+                 p("This app allows users to explore the Superstore sales data. Here they can find the information with different category and segment. Acoording to that can see how much they got the profit and sales."),
+                 # Find the link for data and its source-- check the link for more information
+                 p("Data source: [Superstore Sales Data](https://www.kaggle.com/datasets/juhi1994/superstore/data)"),
+                # here is different tabs according to choice can navigate 
+                  p("Use the sidebar to filter data and navigate the tabs for different features."),
+                # show the picture of logo
+                #img(src = "superstore_logo.jpg", height = "200px", alt = "SuperStore Data Logo")
+                tags$div(
+                  style = "display: flex; justify-content: center; align-items: center;",
+                  img(src = "superstore_logo.jpg", style = "max-width: 100%; height: auto;", alt = "SuperStore Data Logo")
+                )
+                
         ),
+        # Data download Tab :--click the data download tab and we can save the filtered data after clicking on the tab
         
         tabPanel("Data Download",
                  DT::dataTableOutput("data_table"),
                  downloadButton("download_data", "Download Subsetted Data")),
-        
-        
-        
+        #Data exploration Tab:--It represent the numerical and graphical representation of the data according to filtered data
         tabPanel("Data Exploration",
                  h4("Explore Numeric and Categorical Summaries"),
                  
@@ -318,15 +337,17 @@ ui <- fluidPage(
                              choices = names(super_data)[sapply(super_data, is.numeric)]),
                  # selectInput("categorical_summary_var", "Choose Categorical Variable to Group By:", 
                  #    choices = c("None", names(super_data)[sapply(super_data, is.factor)])),
+                 # Select category for the categorical variable1
                  selectInput("cat_var1", "Select Category:", 
                              choices = c("All", levels(factor(super_data$Category)))),
-                 
+                 # Select segment for the categorical variable2
                  selectInput("cat_var2", "Select Segment:", 
                              choices = c("All", levels(factor(super_data$Segment)))),
+                 # Click on action button for getting the summary of the data
                  actionButton("summary_button", "Generate Summary"),
                  tableOutput("summary_table"),
                  
-                 # Plot customization options
+                 # Graph Plots according to choice
                  selectInput("plot_x", "Select X-Axis Variable:", choices = names(super_data)),
                  selectInput("plot_y", "Select Y-Axis Variable:", choices = names(super_data)),
                  selectInput("plot_color", "Select Color Variable:", choices = c("None", names(super_data))),
@@ -337,49 +358,20 @@ ui <- fluidPage(
   )
 )
 
+
+# Define Server
 server <- function(input, output, session) {
   # Reactive data container for subsetted data
   subsetted_data <- reactiveValues(data = super_data)
   
-  # Dynamic UI for numeric variable sliders
-  output$num_slider1 <- renderUI({
-    req(input$num_var1 != "None")
-    range <- range(super_data[[input$num_var1]], na.rm = TRUE)
-    sliderInput("num_range1", paste("Range for", input$num_var1), min = range[1], max = range[2], value = range)
-  })
+  # Reactive value to store the summary statistics
+  summary_data <- reactiveVal(NULL)
   
-  output$num_slider2 <- renderUI({
-    req(input$num_var2 != "None")
-    range <- range(super_data[[input$num_var2]], na.rm = TRUE)
-    sliderInput("num_range2", paste("Range for", input$num_var2), min = range[1], max = range[2], value = range)
-  })
-  
-  # Update subsetted data on button click
-  # observeEvent(input$subset_button, {
-  #   data_filtered <- super_data
-  #   
-  #   # Apply categorical filtering
-  #   if (input$cat_var1 != "All") {
-  #     data_filtered <- data_filtered %>% filter(Category == input$cat_var1)
-  #   }
-  #   if (input$cat_var2 != "All") {
-  #     data_filtered <- data_filtered %>% filter(Segment == input$cat_var2)
-  #   }
-  #   
-  #   # Apply numeric filtering
-  #   if (input$num_var1 != "None" && !is.null(input$num_range1)) {
-  #     data_filtered <- data_filtered %>% filter(between(!!sym(input$num_var1), input$num_range1[1], input$num_range1[2]))
-  #   }
-  #   if (input$num_var2 != "None" && !is.null(input$num_range2)) {
-  #     data_filtered <- data_filtered %>% filter(between(!!sym(input$num_var2), input$num_range2[1], input$num_range2[2]))
-  #   }
-  #   
-  #   subsetted_data$data <- data_filtered
-  # })
+  # Update the subsetted data on button click
   observeEvent(input$subset_button, {
     data_filtered <- super_data
     
-    # Apply categorical filtering if not set to "All"
+    # Apply categorical filtering if not select anyone then by default is show ALL
     if (input$cat_var1 != "All") {
       data_filtered <- data_filtered %>% filter(Category == input$cat_var1)
     }
@@ -398,6 +390,36 @@ server <- function(input, output, session) {
     subsetted_data$data <- data_filtered
   })
   
+  # Generate summary statistics when the "Generate Summary" button is clicked
+  observeEvent(input$summary_button, {
+    # Get filtered data
+    data <- subsetted_data$data  
+    
+    # Check if the selected numeric variable exists and it is numeric
+    if (input$numeric_summary_var %in% names(data) && is.numeric(data[[input$numeric_summary_var]])) {
+      
+      # Summarize the data
+      summary <- data %>%
+        summarise(
+          Mean = mean(!!sym(input$numeric_summary_var), na.rm = TRUE),
+          Median = median(!!sym(input$numeric_summary_var), na.rm = TRUE),
+          SD = sd(!!sym(input$numeric_summary_var), na.rm = TRUE)
+        )
+      
+      # Store the summary in the reactive value
+      summary_data(summary)
+    } else {
+      # Return NA if no valid numeric variable
+      summary_data(data.frame(Mean = NA, Median = NA, SD = NA))  
+    }
+  })
+  
+  # Render summary table from reactive value
+  output$summary_table <- renderTable({
+    # To Ensure summary data is available
+    req(summary_data())  
+    summary_data()  
+  })
   
   # Render subsetted data table in the Data Download tab
   output$data_table <- DT::renderDataTable({
@@ -407,89 +429,13 @@ server <- function(input, output, session) {
   
   # Download handler for the subsetted data
   output$download_data <- downloadHandler(
+    
     filename = function() { paste("subsetted_data", Sys.Date(), ".csv", sep = "") },
     content = function(file) {
+      # Data is store in .csv format
       write.csv(subsetted_data$data, file, row.names = FALSE)
     }
   )
-  
-  # Generate summary statistics for selected numeric variable grouped by categorical variable
-  # output$summary_table <- renderTable({
-  #   req(input$numeric_summary_var)
-  #   
-  #   data <- subsetted_data$data
-  #   if (input$categorical_summary_var != "None") {
-  #     data %>%
-  #       group_by(!!sym(input$categorical_summary_var)) %>%
-  #       summarise(
-  #         Mean = mean(!!sym(input$numeric_summary_var), na.rm = TRUE),
-  #         Median = median(!!sym(input$numeric_summary_var), na.rm = TRUE),
-  #         SD = sd(!!sym(input$numeric_summary_var), na.rm = TRUE)
-  #       )
-  #   } else {
-  #     data %>%
-  #       summarise(
-  #         Mean = mean(!!sym(input$numeric_summary_var), na.rm = TRUE),
-  #         Median = median(!!sym(input$numeric_summary_var), na.rm = TRUE),
-  #         SD = sd(!!sym(input$numeric_summary_var), na.rm = TRUE)
-  #       )
-  #   }
-  # })
-  # output$summary_table <- renderTable({
-  #   req(input$numeric_summary_var)  # Ensure numeric variable is selected
-  #   
-  #   data <- subsetted_data$data  # Get filtered data
-  #   
-  #   # Check if the selected numeric variable exists in the data and is numeric
-  #   if (input$numeric_summary_var %in% names(data) && is.numeric(data[[input$numeric_summary_var]])) {
-  #     
-  #     if (input$cat_var1 != "All") {
-  #       data <- data %>% filter(Category == input$cat_var1)
-  #     }
-  #     if (input$cat_var2 != "All") {
-  #       data <- data %>% filter(Segment == input$cat_var2)
-  #     }
-  #     
-  #     # Summarize the data
-  #     summary_data <- data %>%
-  #       summarise(
-  #         Mean = mean(!!sym(input$numeric_summary_var), na.rm = TRUE),
-  #         Median = median(!!sym(input$numeric_summary_var), na.rm = TRUE),
-  #         SD = sd(!!sym(input$numeric_summary_var), na.rm = TRUE)
-  #       )
-  #     
-  #     return(summary_data)
-  #   } else {
-  #     return(data.frame(Mean = NA, Median = NA, SD = NA))  # Return NA if no valid numeric variable
-  #   }
-  # })
-  # 
-  
-  output$summary_table <- renderTable({
-    req(input$numeric_summary_var)  # Ensure numeric variable is selected
-    
-    data <- subsetted_data$data  # Get filtered data
-    
-    # Check if the data is empty after filtering
-    if (nrow(data) == 0) {
-      return(data.frame(Mean = NA, Median = NA, SD = NA))  # Return NA if no data
-    }
-    
-    # Check if the selected numeric variable exists and is numeric
-    if (input$numeric_summary_var %in% names(data) && is.numeric(data[[input$numeric_summary_var]])) {
-      summary_data <- data %>%
-        summarise(
-          Mean = mean(!!sym(input$numeric_summary_var), na.rm = TRUE),
-          Median = median(!!sym(input$numeric_summary_var), na.rm = TRUE),
-          SD = sd(!!sym(input$numeric_summary_var), na.rm = TRUE)
-        )
-      return(summary_data)
-    } else {
-      return(data.frame(Mean = NA, Median = NA, SD = NA))  # Return NA if invalid variable
-    }
-  })
-  
-  
   
   # Generate summary plot based on selected variables
   output$summary_plot <- renderPlot({
@@ -511,5 +457,4 @@ server <- function(input, output, session) {
   })
 }
 
-# Run the app
 shinyApp(ui, server)
